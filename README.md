@@ -8,6 +8,7 @@ one clinic but this will roll out to more."
 ```
 
 Components:
+
 1. **Search**: A search bar that allows users to quickly find items by name or a relevant identifier.
 2. **Filter**: A filtering system that enables users to narrow down items by category, stock status or other relevant attributes.
 3. **Sort**: Options to sort the inventory list by various criteria such as name, stock count or date added.
@@ -19,6 +20,7 @@ The console makes use of the DummyJSON API to simulate inventory data. My design
 ```
 
 Screens:
+
 1. **Inventory List Screen**: Displays a list of all items in the inventory, with search, filter, and sort functionalities.
 2. **Item Detail Screen**: Shows detailed information about a selected item, including the option to correct the stock count.
 3. TBD
