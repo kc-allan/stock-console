@@ -1,1 +1,31 @@
-@import "tailwindcss"
+@import 'tailwindcss';
+
+/*
+ * Tailwind's default scale is mostly retained for spacing, type and neutrals
+ only with additions for a brand accent, and a minimum control size for touch devices.
+ */
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-200: #bcdaff;
+  --color-brand-300: #8ec2ff;
+  --color-brand-500: #337bf5;
+  --color-brand-600: #1f5fe0;
+  --color-brand-700: #1a4bb5;
+  --color-brand-900: #1c3a72;
+
+  /* Keeps tap target at a minimum of 44px for touch devices. */
+  --spacing-control: 2.75rem;
+}
+
+@layer base {
+  /* Restyle the focus ring instead of removing it. This keeps the app usable with a keyboard. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
