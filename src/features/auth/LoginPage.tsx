@@ -48,7 +48,7 @@ export function LoginPage() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Clinic stock console</h1>
-        <p className="mt-1 text-sm text-slate-600">Sign in to view and correct stock.</p>
+        <p className="mt-1 text-sm text-slate-600">Sign in to manage stock.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
