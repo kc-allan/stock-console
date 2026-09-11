@@ -31,6 +31,14 @@ export class TimeoutError extends Error {
   }
 }
 
+/** A 200 whose body is not the shape we were promised. An error state, never a crash. */
+export class InvalidResponseError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'InvalidResponseError';
+  }
+}
+
 /**
  * True for a request the app itself abandoned — a superseded search, an unmounted screen.
  * The data layer does this routinely, so these must never surface to the user as errors.

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { clearTokens, getTokens, setSessionExpiredHandler } from '../../lib/session';
 import { fetchCurrentUser, login } from './api';
 import { AuthContext, type AuthStatus } from './authContext';
-import type { AuthUser } from './types';
+import type { AuthUser } from './schemas';
 
 type State = { status: AuthStatus; user: AuthUser | null };
 

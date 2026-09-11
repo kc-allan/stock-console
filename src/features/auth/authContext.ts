@@ -1,5 +1,5 @@
 import { createContext, use } from 'react';
-import type { AuthUser } from './types';
+import type { AuthUser } from './schemas';
 
 /**
  * `checking` covers the boot-time /auth/me call. Without it the app would flash

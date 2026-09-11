@@ -6,13 +6,18 @@
  * `apiClient.ts` needs the access token, and it runs outside the component tree.
  */
 
+import { z } from 'zod';
+
 const ACCESS_TOKEN_KEY = 'clinic-stock.accessToken';
 const REFRESH_TOKEN_KEY = 'clinic-stock.refreshToken';
 
-export type SessionTokens = {
-  accessToken: string;
-  refreshToken: string;
-};
+/** One source of truth for the token shape: the refresh response is checked against it too. */
+export const sessionTokensSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+});
+
+export type SessionTokens = z.infer<typeof sessionTokensSchema>;
 
 /**
  * Storage can throw rather than just be empty (Safari private mode, blocked

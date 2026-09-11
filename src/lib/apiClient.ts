@@ -1,5 +1,12 @@
-import { ApiError, isCancellation, NetworkError, TimeoutError } from './errors';
-import { endSession, getTokens, setTokens } from './session';
+import type { z } from 'zod';
+import {
+  ApiError,
+  InvalidResponseError,
+  isCancellation,
+  NetworkError,
+  TimeoutError,
+} from './errors';
+import { endSession, getTokens, sessionTokensSchema, setTokens } from './session';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://dummyjson.com';
 
@@ -13,7 +20,9 @@ const REQUEST_TIMEOUT_MS = 12_000;
 
 export type QueryParams = Record<string, string | number | undefined>;
 
-type RequestOptions = {
+type RequestOptions<Schema extends z.ZodType> = {
+  /** Every response is checked against a schema. There is no untyped escape hatch, on purpose. */
+  schema: Schema;
   method?: 'GET' | 'POST' | 'PUT';
   body?: unknown;
   signal?: AbortSignal;
@@ -48,7 +57,7 @@ async function toApiError(response: Response): Promise<ApiError> {
 
 async function sendRequest(
   path: string,
-  options: RequestOptions,
+  options: RequestOptions<z.ZodType>,
   accessToken: string | null,
 ): Promise<Response> {
   const headers: Record<string, string> = {};
@@ -120,12 +129,13 @@ function refreshAccessToken(): Promise<string> {
       {
         method: 'POST',
         body: { refreshToken: tokens.refreshToken, expiresInMins: TOKEN_LIFETIME_MINUTES },
+        schema: sessionTokensSchema,
       },
       null,
     );
     if (!response.ok) throw await toApiError(response);
 
-    const next = (await response.json()) as { accessToken: string; refreshToken: string };
+    const next = await parseBody(response, sessionTokensSchema);
     setTokens(next);
     return next.accessToken;
   })().finally(() => {
@@ -135,7 +145,10 @@ function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<Schema extends z.ZodType>(
+  path: string,
+  options: RequestOptions<Schema>,
+): Promise<z.output<Schema>> {
   const useAuth = options.authenticated ?? true;
   let response = await sendRequest(
     path,
@@ -175,7 +188,26 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) throw await toApiError(response);
-  return (await response.json()) as T;
+  return parseBody(response, options.schema);
+}
+
+/**
+ * A 200 is not a promise that the body is what we expected. Asserting the type instead would
+ * tell TypeScript a shape is guaranteed when nothing checked it, and the first sign of trouble
+ * would be a render crash rather than an error state.
+ */
+async function parseBody<Schema extends z.ZodType>(
+  response: Response,
+  schema: Schema,
+): Promise<z.output<Schema>> {
+  const payload: unknown = await response.json();
+  const parsed = schema.safeParse(payload);
+  if (!parsed.success) {
+    throw new InvalidResponseError('The server sent back something unexpected.', {
+      cause: parsed.error,
+    });
+  }
+  return parsed.data;
 }
 
 /** Test seam: prevents a refresh started by one test leaking into the next. */

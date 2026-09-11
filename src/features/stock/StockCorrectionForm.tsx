@@ -4,7 +4,7 @@ import { Spinner } from '../../components/Spinner';
 import { ApiError } from '../../lib/errors';
 import { updateStock } from './api';
 import { stockKeys } from './queries';
-import type { ProductDetail, ProductListResponse } from './types';
+import type { ProductDetail, ProductListResponse } from './schemas';
 
 export function StockCorrectionForm({ product }: { product: ProductDetail }) {
   const inputId = useId();

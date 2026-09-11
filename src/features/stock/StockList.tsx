@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import type { Product } from './types';
+import type { Product } from './schemas';
 
 /**
  * A list of cards rather than a table: these users are on 360px-wide ward
