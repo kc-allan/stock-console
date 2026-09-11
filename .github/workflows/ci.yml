@@ -76,3 +76,70 @@ jobs:
           --from ${{ github.event.pull_request.base.sha }}
           --to ${{ github.event.pull_request.head.sha }}
           --verbose
+
+  deploy:
+    name: Deploy to VPS
+    # Only a merge into master deploys, and only once the checks above have passed.
+    # This one line is what stops a broken build reaching the box.
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://stock-console.kiruiallan.me
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Authorise SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Trusts the host on first contact. Pinning a known host key in a secret would be
+          # stronger; this is the trade made for a single box under our own control.
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Publish the build
+        env:
+          SSH: ssh -i ~/.ssh/id_deploy -o BatchMode=yes
+          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          BASE: /var/www/clinic-stock-console
+        run: |
+          set -euo pipefail
+          RELEASE="$BASE/releases/${{ github.sha }}"
+
+          $SSH "$TARGET" "mkdir -p '$RELEASE'"
+          rsync -az --delete -e "$SSH" dist/ "$TARGET:$RELEASE/"
+
+          # Swap by renaming a symlink, so no request is ever served a half-copied
+          # directory, and rolling back is repointing one link.
+          $SSH "$TARGET" "
+            set -eu
+            ln -sfn '$RELEASE' '$BASE/current.next'
+            mv -Tf '$BASE/current.next' '$BASE/current'
+            ls -1dt '$BASE'/releases/* | tail -n +6 | xargs -r rm -rf
+          "
+
+      - name: Confirm the site answers
+        run: |
+          set -euo pipefail
+          # A green deploy job that leaves a broken site is worse than a red one.
+          curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+            -o /dev/null https://stock-console.kiruiallan.me
+          # The SPA fallback is the piece most likely to be missing, so it is checked
+          # directly rather than assumed from the homepage working.
+          curl --fail --silent --show-error \
+            -o /dev/null https://stock-console.kiruiallan.me/items/5
