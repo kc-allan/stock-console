@@ -1,14 +1,18 @@
 import { delay, http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { server } from '../test/server';
 import { apiRequest, API_BASE_URL, resetRefreshState } from './apiClient';
-import { isCancellation, TimeoutError } from './errors';
+import { InvalidResponseError, isCancellation, TimeoutError } from './errors';
 import { getTokens, setTokens } from './session';
 
 const RESOURCE = `${API_BASE_URL}/auth/products`;
 const REFRESH = `${API_BASE_URL}/auth/refresh`;
 
 const expired = () => HttpResponse.json({ message: 'Token Expired!' }, { status: 401 });
+
+/** These tests are about the request lifecycle, not a particular payload shape. */
+const anyBody = z.unknown();
 
 beforeEach(() => {
   // The single-flight promise is module state; a refresh left over from one test would
@@ -31,7 +35,7 @@ describe('a 401 that survives a refresh', () => {
       }),
     );
 
-    await expect(apiRequest('/auth/products')).rejects.toThrow();
+    await expect(apiRequest('/auth/products', { schema: anyBody })).rejects.toThrow();
 
     // The failure this guards: the session used to survive, so the app kept insisting the user
     // was signed in while every request failed, with no way off the screen.
@@ -52,7 +56,7 @@ describe('a refresh that fails for a transport reason', () => {
       http.post(REFRESH, () => HttpResponse.error()),
     );
 
-    await expect(apiRequest('/auth/products')).rejects.toThrow();
+    await expect(apiRequest('/auth/products', { schema: anyBody })).rejects.toThrow();
 
     expect(getTokens()).not.toBeNull();
   });
@@ -67,9 +71,10 @@ describe('timeouts', () => {
       }),
     );
 
-    const timedOut: unknown = await apiRequest('/auth/products', { timeoutMs: 20 }).catch(
-      (error: unknown) => error,
-    );
+    const timedOut: unknown = await apiRequest('/auth/products', {
+      schema: anyBody,
+      timeoutMs: 20,
+    }).catch((error: unknown) => error);
 
     // Without a deadline this request would have left a spinner up indefinitely.
     expect(timedOut).toBeInstanceOf(TimeoutError);
@@ -77,6 +82,7 @@ describe('timeouts', () => {
 
     const caller = new AbortController();
     const pending = apiRequest('/auth/products', {
+      schema: anyBody,
       signal: caller.signal,
       timeoutMs: 5_000,
     }).catch((error: unknown) => error);
@@ -100,5 +106,21 @@ describe('timeouts', () => {
 
     expect(composed.aborted).toBe(true);
     expect(composed.reason).toBe(reason);
+  });
+});
+
+describe('a 200 whose body is the wrong shape', () => {
+  it('is an error the UI can show, not a crash on first render', async () => {
+    server.use(
+      // Status says fine, body says otherwise. Asserting the type would have let this
+      // through to the components and failed there instead.
+      http.get(RESOURCE, () => HttpResponse.json({ products: 'not an array' })),
+    );
+
+    const error: unknown = await apiRequest('/auth/products', {
+      schema: z.object({ products: z.array(z.unknown()) }),
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(InvalidResponseError);
   });
 });

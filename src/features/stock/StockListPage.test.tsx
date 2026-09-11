@@ -129,4 +129,20 @@ describe('StockListPage', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByText('Recovered item');
   });
+
+  it('shows an error rather than a broken page when the API returns the wrong shape', async () => {
+    server.use(
+      categories,
+      // A 200 whose products are not products. Before responses were validated this reached
+      // the list and failed while rendering, with no error state to recover from.
+      http.get(`${BASE}/auth/products`, () =>
+        HttpResponse.json({ products: 'nope', total: 1, skip: 0, limit: 12 }),
+      ),
+    );
+
+    renderWithProviders(<StockListPage />);
+
+    await screen.findByRole('alert');
+    expect(screen.getByText('Could not load stock')).toBeInTheDocument();
+  });
 });
