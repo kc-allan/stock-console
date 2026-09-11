@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
-import { ApiError } from '../../lib/apiClient';
+import { ApiError } from '../../lib/errors';
 import { Spinner } from '../../components/Spinner';
 import { useAuth } from './authContext';
 

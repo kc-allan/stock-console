@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Spinner } from '../../components/Spinner';
-import { ApiError } from '../../lib/apiClient';
+import { ApiError } from '../../lib/errors';
 import { updateStock } from './api';
 import { stockKeys } from './queries';
 import type { ProductDetail, ProductListResponse } from './types';

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { EmptyState, ErrorState } from '../../components/states';
-import { ApiError } from '../../lib/apiClient';
+import { ApiError } from '../../lib/errors';
 import { StockCorrectionForm } from './StockCorrectionForm';
 import { useProduct } from './queries';
 
