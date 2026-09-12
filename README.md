@@ -36,7 +36,7 @@ Sign in with any DummyJSON user, for example `emilys` / `emilyspass`.
 
 ### Environment variables
 
-Only one, and it is optional — see `.env.example`.
+See `.env.example`.
 
 | Variable            | Default                 | Purpose                                             |
 | ------------------- | ----------------------- | --------------------------------------------------- |
@@ -44,7 +44,74 @@ Only one, and it is optional — see `.env.example`.
 
 The app should run with no additional configuration.
 
-## Section 1: Design
+## Deployment and CI/CD
+
+The app is a static bundle. It is built in CI and served from a VPS behind nginx at
+**https://stock-console.kiruiallan.me**. A merge into **`master`** deploys it; nothing else
+does. The pipeline is a single GitHub Actions workflow,
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml), with three jobs.
+
+### What runs, and when
+
+| Job               | Runs on                                    | What it does                                                                                         |
+| ----------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `checks`          | every pull request, every push to `master` | `format:check` → `lint` → `typecheck` → `test:run` → `build`, on the Node version pinned in `.nvmrc` |
+| `commit-messages` | pull requests only                         | `commitlint` over every commit in the pull request's range                                           |
+| `deploy`          | pushes to `master`, only after `checks`    | builds, ships the bundle to the VPS, then checks that the site answers                               |
+
+`commit-messages` is a separate job because the check needs a base and a head to compare, and
+that range only exists on a pull request. The same check runs locally on `commit-msg` via husky,
+so a malformed message is normally caught before it is ever pushed; the CI job is there for the
+case where hooks were skipped.
+
+Two details in the workflow worth naming. Installs use `--frozen-lockfile`, so a lockfile that
+has drifted from `package.json` fails the run rather than quietly resolving to versions nobody
+tested. And `HUSKY=0` is set for the whole workflow: git hooks belong to a working copy, CI runs
+the same checks directly, and installing them there would only add a way for the run to fail for
+its own reasons.
+
+### Which checks can block a merge
+
+These are required status checks on `master`. A pull request cannot be merged while any of them
+is red:
+
+- **Formatting**: `prettier --check .`
+- **Linting**: `eslint .`, including the `jsx-a11y` accessibility ruleset
+- **Types**: `tsc -b`
+- **Tests**: `vitest run`
+- **Commit messages**: `commitlint` over the pull request's commits
+
+`build` runs in the same job as the first four, so a broken import or a type error that only
+surfaces in a production build fails the pull request rather than failing a deploy later.
+
+### How a deploy works
+
+`deploy` is gated on `needs: checks`, which is the one line that stops a broken build reaching
+the box. It then:
+
+1. builds the bundle in CI rather than on the server;
+2. `rsync`s it into a new `releases/<commit-sha>/` directory;
+3. repoints the `current` symlink at that directory with an atomic `mv -T`, so no request is ever
+   served out of a directory that is still being copied into;
+4. prunes all but the five most recent releases, so a rollback is repointing one symlink;
+5. requests the homepage **and** `/items/5`. The SPA fallback is the piece most likely to be
+   missing, so it is checked directly rather than assumed from the homepage working.
+
+Server setup including the deploy user, the release layout, the nginx config and TLS are documented in
+[`deploy/README.md`](deploy/README.md).
+
+### What happens when something fails
+
+- **A check fails on a pull request**: the merge is blocked and nothing deploys.
+- **`checks` fails on a push to `master`**: `deploy` is skipped and the previous release stays
+  live.
+- **The deploy fails before the symlink swap**: the swap is the last thing to happen, so the
+  previous release is still being served.
+- **The post-deploy request fails**: the job goes red with the new release already live. This is
+  the one case that needs a person: rolling back is repointing `current` at the previous release
+  directory.
+
+## Design
 
 ```text
 We run a clinic. Our supplies team needs an internal console to see what stock we hold. They need to search it, filter it by category, sort it, open an item to see the detail, and correct the stock count when a physical count disagrees with the system. Most of them are on ward tablets over patchy wifi. Some of them share links to specific items over chat. We are starting with one clinic but this will roll out to more."
@@ -71,9 +138,7 @@ From reading the docs provided by dummy json a few things stand out:
 
 - The same applies to sorting which only supports a handful of fields that the list can be sorted by e.g `sortBy=title` returns a sorted list while `sortBy=meta.createdAt` returns an unsorted list despite both being a `200` response and both being valid fields in the payload.
 
-HM:
-
-- `sortBy` is applied across the whole result set before pagination, so page one's highest price sits below page two's lowest. So sorting can be left to the server and stays correct across all pages.
+**NB**:- `sortBy` is applied across the whole result set before pagination, so page one's highest price sits below page two's lowest. So sorting can be left to the server and stays correct across all pages.
 
 These endpoints were tested with Postman to first have an idea of what the API structure looks like and to verify that what is claimed by the docs is actually how the API behaves.
 
@@ -96,7 +161,7 @@ Screens:
 
 #### URL state
 
-The URL handles the main query. The search term, category, sort field, sort direction and page number states live in the query string and are not copied into component state. This allows share links to persist the same view for all users and a reloading the page also does not lose someone's place. To avoid breaking the page however when a parameter is truncated or hand-typed, the meaning of a URL is parsed and validated by a helper function.
+The URL handles the main query. The search term, category, sort field, sort direction and page number states live in the query string and are not copied into component state. This allows shared links to persist the same view for all users and reloading the page also does not lose someone's place. To avoid breaking the page however when a parameter is truncated or hand-typed, the meaning of a URL is parsed and validated by a helper function to always produce a valid query object.
 
 #### Server state
 
@@ -131,11 +196,11 @@ The list is a single column of cards rather than a table. A table may be better 
 
 ### Accessibility
 
-`eslint-plugin-jsx-a11y` runs in the lint step, so obvious accessibility mistakes fail the build.
+I've set up `eslint-plugin-jsx-a11y` to run in the lint step, so we are able to catch obvious accessibility mistakes and fail the build early.
 
 Three things worth considering:
 
-- Result counts are displayed on a live region, so someone not looking at the screen knows a filter did something.
+- Result counts are displayed on a live region pn the screen. Someone not looking at the screen knows a filter did something.
 - Validation errors are shown and move focus back to the field. The submit button is disabled only while the request is processing and not due to invalid inputs.
 - Focus moves to the heading when the item detail opens, so keyboard users get a signal that the page changed.
 
@@ -153,3 +218,81 @@ Three things worth considering:
 
 4. **Writing the save response into the cache instead of invalidating**
    The convention after a successful mutation is to invalidate the query and refetch. Here that is won't really work since the API returns the updated object but does not store it, so the refetch returns the old count and the update will be undone when this data updates the UI. Instead I write the response into the cache and the detail view and any cached list page then give notice to the user that the demo API will not keep the change, a reload will overwrite it. The app is briefly more optimistic than the server.
+
+## AI Usage & Reflection
+
+#### Section 1: Design
+
+I wrote the initial design docs and notes before getting into implementation, including the main screens and component structure. I then used AI to pressure-test the design and identify areas that needed more explicit decisions, particularly state ownership, data fetching, accessibility, and API limitations.
+
+Reviewing DummyJSON's documentation and testing the API directly with Postman helped identify discrepancies between the documented behaviour and actual responses, which informed design decisions around authentication, search, filtering and how to handle mutation.
+
+#### Section 2: Build
+
+I used Claude as the main assistant. I directed the architecture and made the key engineering decisions, while AI was used for scaffolding, debugging and exploring implementation alternatives. AI also help with scaffolding tests but I was keen to not give it context on the codebase and only prompted it to test against specific behaviours to avoid "over-fitting" (for lack of a better word).
+
+A significant part of the workflow was verifying the DummyJSON API directly before relying on assumptions on assumptions I had made, one of which was my intial reliance on that root /products endpoint as suggested by the requirements but later chose to use the "/auth/products" alternative to simulate better session management.
+
+#### Section 3: Deployment and CI/CD
+
+Majority of the deployment and CI/CD work was done by me taking config from previous projects I've done and only tweaking slightly to fit this project. AI however suggested adding a README to explain the deployment process and a guide on how to set up a generic environment of the VPS for anyone who might want to recreate the setup.
+
+#### Section 4: Reflection
+
+This reflection was written by me as well. I used AI to help organise the factual record of my development process especially since my intial brainstorming was scribbled notes I had on the side. Otherwise the reflection and judgments are my own.
+
+### Workflow and tools.
+
+My general workflow was:
+
+1. Inspect the repository and assessment requirements.
+2. Probe the external API where behaviour was important to the design.
+3. Make design decisions on what was required.
+4. Implement the solution per feature i.e auth, stock listing then stock management then circled back to do the search, sort and filter functionalities.
+5. Review and test each feature before committing it.
+6. Use AI to challenge assumptions and investigate alternatives rather than accepting generated code without review.
+
+### An AI suggestion that improved the work
+
+One particularly useful suggestion was to verify the behaviour of the API before deciding how mutations and cache invalidation should work.
+
+I prompted it to investigate the DummyJSON endpoints and compare the documented behaviour with the behaviour actually observed from requests.
+
+That investigation showed that the `PUT` endpoint accepts a stock correction but does not persist it. This changed the mutation strategy: instead of blindly invalidating the affected query and immediately refetching, the application uses the successful response to update the relevant cached data while explicitly communicating the limitation of the demo API.
+
+This avoided creating a UI where a successful correction appeared to immediately undo itself after a refetch.
+
+### An AI output that was incorrect or incomplete
+
+One useful example occurred while implementing the authenticated request flow. An early version allowed a request to remain in a signed-in state after a refresh had apparently succeeded but the resulting credentials were still rejected. This could leave the user on a screen where retrying the operation could not resolve the problem.
+
+I caught this during review of the failure path and changed the session handling so that an unsuccessful refreshed session is treated as an unrecoverable authentication failure rather than repeatedly retrying the same request.
+
+I also used automated tests and linting throughout the process to catch implementation-level issues that were not always apparent from reviewing the generated code alone.
+
+### Two decisions I made without AI
+
+**1. Deploying to my own VPS**
+
+I chose to deploy the application to my own Linux VPS rather than relying solely on a managed frontend deployment platform. This gave me direct control over the production environment and allowed me to demonstrate the deployment and release process I've used for majority of my projects. I kept a managed platform as a second target anyway, so the main server being down does not compromise the site's availability (`vercel.json`) holds the SPA rewrite that needs.
+
+**2. Requiring review before commits**
+
+I deliberately structured the workflow so I could review any generated or assisted changes before committing to it.
+
+### Part of the codebase I would find hardest to defend
+
+The most technically subtle part is the authentication request layer, particularly the single-flight token refresh mechanism.
+
+The important behaviour is that multiple requests receiving an authentication failure should not independently start refresh operations. They should share one refresh attempt and then retry appropriately.
+
+I understand the mechanism and the reasoning around it, but it is also the area where I would expect to be questioned during a review.
+
+### Time spent
+
+| Section                       | Time           |
+| ----------------------------- | -------------- |
+| Section 1: Design             | 1 hour 30 mins |
+| Section 2: Build              | 5 hours        |
+| Section 3: Deployment & CI/CD | 30 minutes     |
+| Section 4: Reflection         | 20 minutes     |

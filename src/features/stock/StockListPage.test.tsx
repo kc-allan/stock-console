@@ -16,7 +16,7 @@ function page(titles: string[], total = titles.length) {
       category: 'wound-care',
       stock: 5,
       price: 1,
-      thumbnail: '',
+      thumbnail: `https://cdn.dummyjson.com/products/images/${index + 1}/thumbnail.png`,
     })),
     total,
     skip: 0,

@@ -21,6 +21,7 @@ export function createQueryClient(): QueryClient {
         staleTime: 30_000,
         retry: shouldRetry,
         retryDelay: 1500,
+        refetchOnWindowFocus: false,
       },
     },
   });
