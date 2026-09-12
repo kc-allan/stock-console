@@ -14,7 +14,7 @@ const product = {
   category: 'wound-care',
   stock: 40,
   price: 2.5,
-  thumbnail: '',
+  thumbnail: 'https://cdn.dummyjson.com/products/images/7/thumbnail.png',
   description: 'A dressing.',
   rating: 4,
 };
