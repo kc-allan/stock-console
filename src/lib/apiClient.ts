@@ -7,6 +7,7 @@ import {
   TimeoutError,
 } from './errors';
 import { endSession, getTokens, sessionTokensSchema, setTokens } from './session';
+import { getSimulatedDelay } from './simulatedDelay';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://dummyjson.com';
 
@@ -38,6 +39,8 @@ function buildUrl(path: string, params?: QueryParams): string {
       url.searchParams.set(key, String(value));
     }
   }
+  const delay = getSimulatedDelay();
+  if (delay > 0) url.searchParams.set('delay', String(delay));
   return url.toString();
 }
 

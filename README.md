@@ -17,7 +17,8 @@ pnpm install
 pnpm dev            # http://localhost:5173
 ```
 
-Sign in with any DummyJSON user, for example `emilys` / `emilyspass`.
+- Sign in with any DummyJSON user, for example `emilys` / `emilyspass`.
+- Add `?delay=2000` to the URL to simulate a slow connection.
 
 ### Scripts
 
@@ -254,13 +255,9 @@ My general workflow was:
 
 ### An AI suggestion that improved the work
 
-One particularly useful suggestion was to verify the behaviour of the API before deciding how mutations and cache invalidation should work.
+As I was implementing the stock listing feature, AI noted that since the API doesn't persist stock corrections, the stock availability status being checked against the live API would be misleading i.e an item corrected from 0 to 50 would show "Out of Stock" even though it has been corrected.
 
-I prompted it to investigate the DummyJSON endpoints and compare the documented behaviour with the behaviour actually observed from requests.
-
-That investigation showed that the `PUT` endpoint accepts a stock correction but does not persist it. This changed the mutation strategy: instead of blindly invalidating the affected query and immediately refetching, the application uses the successful response to update the relevant cached data while explicitly communicating the limitation of the demo API.
-
-This avoided creating a UI where a successful correction appeared to immediately undo itself after a refetch.
+The plausible solution therefore was to check stock against the stock count in the cache and display the status based on that instead.
 
 ### An AI output that was incorrect or incomplete
 

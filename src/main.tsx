@@ -10,6 +10,9 @@ import './index.css';
 import App from './App.tsx';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { createQueryClient } from './lib/queryClient';
+import { parseDelay, setSimulatedDelay } from './lib/simulatedDelay';
+
+setSimulatedDelay(parseDelay(new URLSearchParams(window.location.search).get('delay')));
 
 const queryClient = createQueryClient();
 
