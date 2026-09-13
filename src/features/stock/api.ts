@@ -1,5 +1,5 @@
-import { apiRequest, type QueryParams } from '../../lib/apiClient';
-import { PAGE_SIZE, type StockParams } from './stockParams';
+import { apiRequest } from '../../lib/apiClient';
+import type { StockQuery } from './stockParams';
 import {
   categoryListSchema,
   productDetailSchema,
@@ -12,31 +12,26 @@ import {
 /** Trimming the payload matters on patchy connections. */
 const LIST_FIELDS = 'title,category,stock,price,thumbnail';
 
-export function fetchStockPage(
-  params: StockParams,
+/**
+ * Every item matching the search, sorted by the server, in one request. Category and page are
+ * then applied in the browser: the search endpoint ignores a category parameter, and the whole
+ * catalogue is 194 items, so the complete result is small enough to fetch outright.
+ */
+export function fetchStockItems(
+  query: StockQuery,
   signal?: AbortSignal,
 ): Promise<ProductListResponse> {
-  const shared: QueryParams = {
-    limit: PAGE_SIZE,
-    skip: (params.page - 1) * PAGE_SIZE,
-    sortBy: params.sort,
-    order: params.order,
-    select: LIST_FIELDS,
-  };
-  const shape = { schema: productListResponseSchema, signal };
-
-  // Three endpoints, one shape of result. Search and category are mutually
-  // exclusive because the search endpoint ignores a category parameter.
-  if (params.q) {
-    return apiRequest('/auth/products/search', { ...shape, params: { ...shared, q: params.q } });
-  }
-  if (params.category) {
-    return apiRequest(`/auth/products/category/${encodeURIComponent(params.category)}`, {
-      ...shape,
-      params: shared,
-    });
-  }
-  return apiRequest('/auth/products', { ...shape, params: shared });
+  return apiRequest(query.q ? '/auth/products/search' : '/auth/products', {
+    schema: productListResponseSchema,
+    signal,
+    params: {
+      q: query.q,
+      limit: 0, // DummyJSON reads 0 as "no limit".
+      sortBy: query.sort,
+      order: query.order,
+      select: LIST_FIELDS,
+    },
+  });
 }
 
 export function fetchCategories(signal?: AbortSignal): Promise<Category[]> {

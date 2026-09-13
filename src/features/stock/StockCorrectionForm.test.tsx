@@ -23,6 +23,15 @@ function renderDetail() {
   return renderWithProviders(<ItemDetailPage />, { route: '/items/7', path: '/items/:id' });
 }
 
+/**
+ * The form starts closed. jsdom does not implement `inert`, so a test could type into the
+ * collapsed field and pass without ever opening it; going through the toggle keeps every test on
+ * the path a person actually takes.
+ */
+async function openCorrection(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Correct stock count' }));
+}
+
 describe('StockCorrectionForm', () => {
   it('saves a new count and keeps it on screen afterwards', async () => {
     // DummyJSON accepts the PUT but does not persist it, so the saved value has
@@ -38,8 +47,9 @@ describe('StockCorrectionForm', () => {
     const user = userEvent.setup({ delay: null });
     renderDetail();
     await screen.findByRole('heading', { name: 'Sterile gauze pad' });
+    await openCorrection(user);
 
-    const input = screen.getByLabelText('Corrected stock count');
+    const input = screen.getByLabelText('Stock count');
     await user.clear(input);
     await user.type(input, '37');
     await user.click(screen.getByRole('button', { name: 'Save new count' }));
@@ -48,7 +58,7 @@ describe('StockCorrectionForm', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Stock is now 37');
     // The headline figure reflects the save rather than reverting to 40.
     await waitFor(() => {
-      expect(screen.getByText('Recorded stock').nextElementSibling).toHaveTextContent('37');
+      expect(screen.getByText('Stock').nextElementSibling).toHaveTextContent('37');
     });
   });
 
@@ -66,8 +76,9 @@ describe('StockCorrectionForm', () => {
     const user = userEvent.setup({ delay: null });
     renderDetail();
     await screen.findByRole('heading', { name: 'Sterile gauze pad' });
+    await openCorrection(user);
 
-    const input = screen.getByLabelText('Corrected stock count');
+    const input = screen.getByLabelText('Stock count');
     await user.clear(input);
     await user.type(input, '12');
 
@@ -91,8 +102,9 @@ describe('StockCorrectionForm', () => {
     const user = userEvent.setup({ delay: null });
     renderDetail();
     await screen.findByRole('heading', { name: 'Sterile gauze pad' });
+    await openCorrection(user);
 
-    const input = screen.getByLabelText('Corrected stock count');
+    const input = screen.getByLabelText('Stock count');
     await user.clear(input);
     await user.type(input, '31');
     await user.click(screen.getByRole('button', { name: 'Save new count' }));
@@ -102,6 +114,32 @@ describe('StockCorrectionForm', () => {
     // Losing the count someone just walked the ward to establish is not acceptable.
     expect(input).toHaveValue(31);
     expect(screen.getByRole('button', { name: 'Save new count' })).toBeEnabled();
+  });
+
+  it('stays closed until the toggle opens it, then puts focus in the count', async () => {
+    server.use(http.get(`${BASE}/auth/products/7`, () => HttpResponse.json(product)));
+
+    const user = userEvent.setup({ delay: null });
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Sterile gauze pad' });
+
+    const toggle = screen.getByRole('button', { name: 'Correct stock count' });
+    const field = screen.getByLabelText('Stock count');
+
+    // Closed: announced as collapsed, and the field is inside an inert region, so it is out of
+    // the tab order and hidden from assistive technology rather than merely squashed to 0px.
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(field.closest('[inert]')).not.toBeNull();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(field.closest('[inert]')).toBeNull();
+    expect(field).toHaveFocus();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(field.closest('[inert]')).not.toBeNull();
   });
 
   it('offers a way back when a shared link points at a missing item', async () => {
@@ -137,8 +175,9 @@ describe('StockCorrectionForm', () => {
     const user = userEvent.setup({ delay: null });
     renderDetail();
     await screen.findByRole('heading', { name: 'Sterile gauze pad' });
+    await openCorrection(user);
 
-    const field = screen.getByLabelText('Corrected stock count');
+    const field = screen.getByLabelText('Stock count');
     await user.clear(field);
     if (input) await user.type(field, input);
     await user.click(screen.getByRole('button', { name: 'Save new count' }));

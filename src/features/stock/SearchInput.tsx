@@ -6,8 +6,6 @@ const DEBOUNCE_MS = 300;
 type Props = {
   value: string;
   onCommit: (next: string) => void;
-  disabled?: boolean;
-  disabledHint?: string;
 };
 
 /**
@@ -18,9 +16,8 @@ type Props = {
  * Debouncing here reduces requests. It is not what prevents stale results from
  * being shown -- that is the query key in `queries.ts`.
  */
-export function SearchInput({ value, onCommit, disabled, disabledHint }: Props) {
+export function SearchInput({ value, onCommit }: Props) {
   const inputId = useId();
-  const hintId = useId();
   const [draft, setDraft] = useState(value);
   const [lastCommitted, setLastCommitted] = useState(value);
 
@@ -47,30 +44,23 @@ export function SearchInput({ value, onCommit, disabled, disabledHint }: Props) 
           id={inputId}
           type="search"
           value={draft}
-          disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Item name"
-          aria-describedby={disabled && disabledHint ? hintId : undefined}
-          className="h-control min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 disabled:bg-slate-100 disabled:text-slate-500"
+          className="h-control min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3"
         />
-        {draft && !disabled && (
+        {draft && (
           <button
             type="button"
             onClick={() => {
               setDraft('');
               onCommit('');
             }}
-            className="h-control rounded-md border border-slate-300 px-3 text-sm hover:bg-slate-100"
+            className="h-control rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-raised"
           >
             Clear
           </button>
         )}
       </div>
-      {disabled && disabledHint && (
-        <p id={hintId} className="text-xs text-slate-600">
-          {disabledHint}
-        </p>
-      )}
     </div>
   );
 }

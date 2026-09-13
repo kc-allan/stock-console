@@ -1,10 +1,11 @@
 import { delay, http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { server } from '../test/server';
 import { apiRequest, API_BASE_URL, resetRefreshState } from './apiClient';
 import { InvalidResponseError, isCancellation, TimeoutError } from './errors';
 import { getTokens, setTokens } from './session';
+import { setSimulatedDelay } from './simulatedDelay';
 
 const RESOURCE = `${API_BASE_URL}/auth/products`;
 const REFRESH = `${API_BASE_URL}/auth/refresh`;
@@ -122,5 +123,40 @@ describe('a 200 whose body is the wrong shape', () => {
     }).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(InvalidResponseError);
+  });
+});
+
+describe('simulated delay', () => {
+  afterEach(() => {
+    // Module state; left set, it would slow every request in the tests that follow.
+    setSimulatedDelay(0);
+  });
+
+  function captureDelayParam() {
+    const seen: { delay: string | null } = { delay: 'no request made' };
+    server.use(
+      http.get(RESOURCE, ({ request }) => {
+        seen.delay = new URL(request.url).searchParams.get('delay');
+        return HttpResponse.json({});
+      }),
+    );
+    return seen;
+  }
+
+  it('is forwarded on every request while it is set', async () => {
+    const seen = captureDelayParam();
+    setSimulatedDelay(1500);
+
+    await apiRequest('/auth/products', { schema: anyBody });
+
+    expect(seen.delay).toBe('1500');
+  });
+
+  it('is left off the request entirely when it is not set', async () => {
+    const seen = captureDelayParam();
+
+    await apiRequest('/auth/products', { schema: anyBody });
+
+    expect(seen.delay).toBeNull();
   });
 });

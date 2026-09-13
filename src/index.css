@@ -1,31 +1,51 @@
 @import 'tailwindcss';
 
 /*
- * Tailwind's default scale is mostly retained for spacing, type and neutrals
- only with additions for a brand accent, and a minimum control size for touch devices.
+ * The whole palette lives here, named by role rather than hue, so a component says what a
+ * colour is for ("figure", "out") and the look can change in one place.
+ *
+ * Amber is the one accent. Counts are the thing a supplies team scans for, so they are the only
+ * figures drawn in it. Everything else stays in warm neutrals.
  */
 @theme {
-  --color-brand-50: #eef6ff;
-  --color-brand-100: #d9eaff;
-  --color-brand-200: #bcdaff;
-  --color-brand-300: #8ec2ff;
-  --color-brand-500: #337bf5;
-  --color-brand-600: #1f5fe0;
-  --color-brand-700: #1a4bb5;
-  --color-brand-900: #1c3a72;
+  --font-sans: 'Red Hat Text Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Red Hat Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  /* Keeps tap target at a minimum of 44px for touch devices. */
+  --color-ground: #f2f2ef;
+  --color-surface: #ffffff;
+  --color-raised: #f0efea;
+  --color-ink: #1c1b17;
+  --color-muted: #6b685f;
+
+  /* Dividers can be faint. The edge of a control cannot: it needs 3:1 against its background. */
+  --color-line: #dedcd5;
+  --color-line-strong: #8f8b80;
+
+  /* Bright amber is for fills, with dark text on top. As text on white it is only about 2:1, so
+     counts drawn in amber use the darker figure tone, which clears 4.5:1. */
+  --color-accent: #f0a43a;
+  --color-accent-hover: #e0932a;
+  --color-accent-ink: #1c1406;
+  --color-figure: #a86200;
+
+  --color-out: #b42318;
+  --color-out-soft: #fbeae8;
+  --color-ok: #1f6f4a;
+  --color-ok-soft: #e6f2ec;
+
+  /* Keeps every tap target at 44px or more on touch devices. */
   --spacing-control: 2.75rem;
 }
 
 @layer base {
-  /* Restyle the focus ring instead of removing it. This keeps the app usable with a keyboard. */
+  /* Restyled rather than removed, so the app stays usable with a keyboard. The figure tone is
+     used because it holds 3:1 against every surface the ring can sit on. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-600);
+    outline: 2px solid var(--color-figure);
     outline-offset: 2px;
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-ground font-sans text-ink antialiased;
   }
 }

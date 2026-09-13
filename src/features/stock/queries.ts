@@ -1,24 +1,24 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { fetchCategories, fetchProduct, fetchStockPage } from './api';
-import type { StockParams } from './stockParams';
+import { fetchCategories, fetchProduct, fetchStockItems } from './api';
+import type { StockQuery } from './stockParams';
 
 export const stockKeys = {
   lists: ['stock', 'list'] as const,
-  list: (params: StockParams) => ['stock', 'list', params] as const,
+  list: (query: StockQuery) => ['stock', 'list', query] as const,
   categories: ['stock', 'categories'] as const,
   detail: (id: string) => ['stock', 'detail', id] as const,
 };
 
-export function useStockPage(params: StockParams) {
+export function useStockItems(query: StockQuery) {
   return useQuery({
-    // Every input to the request is in the key. This is what makes a late
-    // response for a replaced search harmless: it resolves into the cache entry
-    // for the query it belongs to, which is no longer the one being rendered.
-    queryKey: stockKeys.list(params),
-    queryFn: ({ signal }) => fetchStockPage(params, signal),
-    // Keeps the previous page visible while the next one loads instead of
-    // flashing a skeleton. The result is flagged as placeholder data so the UI
-    // can show that it is out of date rather than passing it off as current.
+    // Everything the server is asked is in the key, and nothing else. A late response for a
+    // replaced search resolves into the entry for that search, which is no longer the one being
+    // rendered. Category and page are not in the key because they never reach the server, so
+    // changing them reuses what is already loaded instead of fetching again.
+    queryKey: stockKeys.list(query),
+    queryFn: ({ signal }) => fetchStockItems(query, signal),
+    // Keeps the previous results visible while a new search loads instead of flashing a
+    // skeleton. They are flagged as placeholder data so the UI can mark them out of date.
     placeholderData: keepPreviousData,
   });
 }

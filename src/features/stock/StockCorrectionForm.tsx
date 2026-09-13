@@ -66,54 +66,47 @@ export function StockCorrectionForm({ product }: { product: ProductDetail }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3" noValidate>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={inputId} className="text-sm font-medium">
-          Corrected stock count
+        <label htmlFor={inputId} className="text-xs font-medium tracking-wide text-muted uppercase">
+          Stock count
         </label>
-        <input
-          id={inputId}
-          ref={inputRef}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={1}
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-            setValidationError(null);
-          }}
-          aria-invalid={errorMessage ? true : undefined}
-          aria-describedby={errorMessage ? messageId : undefined}
-          className="h-control w-40 rounded-md border border-slate-300 bg-white px-3 tabular-nums"
-        />
-      </div>
-
-      <div>
-        <button
-          type="submit"
-          // Disabled only while in flight, which is what stops a double submit.
-          // Validation is reported rather than silently disabling the button.
-          disabled={mutation.isPending}
-          className="h-control rounded-md bg-brand-600 px-4 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-        >
-          {mutation.isPending ? <Spinner label="Saving" /> : 'Save new count'}
-        </button>
+        {/* Wraps rather than overflowing if the button text ever outgrows a narrow screen. */}
+        <div className="flex flex-wrap gap-2">
+          <input
+            id={inputId}
+            ref={inputRef}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setValidationError(null);
+            }}
+            aria-invalid={errorMessage ? true : undefined}
+            aria-describedby={errorMessage ? messageId : undefined}
+            className="h-control w-32 min-w-0 rounded-lg border border-line-strong bg-surface px-3 font-mono text-xl font-semibold tabular-nums"
+          />
+          <button
+            type="submit"
+            // Disabled only while in flight, which is what stops a double submit.
+            // Validation is reported rather than silently disabling the button.
+            disabled={mutation.isPending}
+            className="h-control flex-1 rounded-lg bg-accent px-4 font-semibold whitespace-nowrap text-accent-ink hover:bg-accent-hover disabled:opacity-60"
+          >
+            {mutation.isPending ? <Spinner label="Saving" /> : 'Save new count'}
+          </button>
+        </div>
       </div>
 
       {errorMessage && (
-        <p
-          id={messageId}
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-        >
+        <p id={messageId} role="alert" className="rounded-lg bg-out-soft p-3 text-sm text-out">
           {errorMessage}
         </p>
       )}
 
       {mutation.isSuccess && !errorMessage && (
-        <p
-          role="status"
-          className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900"
-        >
+        <p role="status" className="rounded-lg bg-ok-soft p-3 text-sm text-ok">
           Saved. Stock is now {mutation.data.stock}. The demo API accepts the change but does not
           store it, so a hard reload will show the original count.
         </p>

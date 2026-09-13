@@ -2,38 +2,55 @@ import { Link } from 'react-router';
 import type { Product } from './schemas';
 
 /**
- * A list of cards rather than a table: these users are on 360px-wide ward
- * tablets, and one layout that works everywhere beats a table plus a separate
- * mobile rendering of the same data.
+ * Rows rather than a table: these users are on 360px-wide ward tablets, and one
+ * layout that works everywhere beats a table plus a separate mobile rendering of
+ * the same data.
  */
 export function StockList({ products, search }: { products: Product[]; search: string }) {
   return (
-    <ul className="flex flex-col gap-2">
-      {products.map((product) => (
-        <li key={product.id}>
-          <Link
-            to={{ pathname: `/items/${product.id}`, search }}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-300 hover:bg-brand-50"
-          >
-            <img
-              src={product.thumbnail}
-              alt=""
-              loading="lazy"
-              className="size-14 shrink-0 rounded object-cover"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{product.title}</span>
-              <span className="block text-sm text-slate-600 capitalize">
-                {product.category.replaceAll('-', ' ')}
+    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+      {products.map((product) => {
+        // Derived from the count rather than read from the API's availability field, which
+        // DummyJSON never recalculates after a correction and would then contradict the number.
+        const outOfStock = product.stock === 0;
+        return (
+          <li key={product.id}>
+            <Link
+              to={{ pathname: `/items/${product.id}`, search }}
+              className="flex min-h-16 items-center gap-3.5 px-4 py-3 hover:bg-raised"
+            >
+              <img
+                src={product.thumbnail}
+                alt=""
+                loading="lazy"
+                className="size-11 shrink-0 rounded-lg bg-raised object-cover"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{product.title}</span>
+                <span className="block text-sm text-muted capitalize">
+                  {product.category.replaceAll('-', ' ')}
+                  {outOfStock && (
+                    <span className="font-medium whitespace-nowrap text-out normal-case">
+                      {' '}
+                      · Out of stock
+                    </span>
+                  )}
+                </span>
               </span>
-            </span>
-            <span className="shrink-0 text-right">
-              <span className="block text-lg font-semibold tabular-nums">{product.stock}</span>
-              <span className="block text-xs text-slate-600">in stock</span>
-            </span>
-          </Link>
-        </li>
-      ))}
+              {/* The count is the one figure in the accent. No caption under it: the list is
+                  about stock, so the number does not need labelling on every row. */}
+              <span
+                className={`shrink-0 font-mono text-2xl font-semibold tabular-nums ${
+                  outOfStock ? 'text-out' : 'text-figure'
+                }`}
+              >
+                {product.stock}
+                <span className="sr-only"> in stock</span>
+              </span>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }

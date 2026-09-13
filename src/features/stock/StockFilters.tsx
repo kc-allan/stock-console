@@ -19,17 +19,11 @@ export function StockFilters({ params, onChange }: Props) {
   const sortId = useId();
   const categories = useCategories();
 
-  const searchActive = params.q !== '';
   const categoryActive = params.category !== '';
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start">
-      <SearchInput
-        value={params.q}
-        onCommit={(q) => onChange({ q })}
-        disabled={categoryActive}
-        disabledHint="Clear the category filter to search."
-      />
+      <SearchInput value={params.q} onCommit={(q) => onChange({ q })} />
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor={categoryId} className="text-sm font-medium">
@@ -39,9 +33,9 @@ export function StockFilters({ params, onChange }: Props) {
           <select
             id={categoryId}
             value={params.category}
-            disabled={searchActive || categories.isPending || categories.isError}
+            disabled={categories.isPending || categories.isError}
             onChange={(event) => onChange({ category: event.target.value })}
-            className="h-control rounded-md border border-slate-300 bg-white px-2 disabled:bg-slate-100 disabled:text-slate-500"
+            className="h-control min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-2.5 disabled:bg-raised disabled:text-muted"
           >
             <option value="">All categories</option>
             {categories.data?.map((category) => (
@@ -54,17 +48,14 @@ export function StockFilters({ params, onChange }: Props) {
             <button
               type="button"
               onClick={() => onChange({ category: '' })}
-              className="h-control rounded-md border border-slate-300 px-3 text-sm hover:bg-slate-100"
+              className="h-control rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-raised"
             >
               Clear
             </button>
           )}
         </div>
-        {searchActive && (
-          <p className="text-xs text-slate-600">Clear the search to filter by category.</p>
-        )}
         {categories.isError && (
-          <p className="text-xs text-red-700">
+          <p className="text-xs text-out">
             Categories did not load.{' '}
             <button type="button" onClick={() => categories.refetch()} className="underline">
               Retry
@@ -84,7 +75,7 @@ export function StockFilters({ params, onChange }: Props) {
             const [sort, order] = event.target.value.split(':');
             onChange({ sort: sort as SortField, order: order as SortOrder });
           }}
-          className="h-control rounded-md border border-slate-300 bg-white px-2"
+          className="h-control rounded-lg border border-line-strong bg-surface px-2.5"
         >
           {SORT_OPTIONS.map((option) =>
             (['asc', 'desc'] as const).map((order) => (
