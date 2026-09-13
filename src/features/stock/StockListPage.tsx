@@ -28,12 +28,12 @@ export function StockListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-xl font-semibold tracking-tight">Stock</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Stock</h1>
 
       <StockFilters params={params} onChange={updateParams} />
 
       {/* Announces result counts to screen readers as filters change. */}
-      <p aria-live="polite" className="text-sm text-slate-600">
+      <p aria-live="polite" className="text-sm text-muted">
         {query.isError || matching === undefined
           ? ''
           : total === 0
@@ -66,7 +66,7 @@ export function StockListPage() {
               <button
                 type="button"
                 onClick={() => updateParams({ q: '', category: '' })}
-                className="h-control rounded-md border border-slate-300 px-4 text-sm font-medium hover:bg-slate-100"
+                className="h-control rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-raised"
               >
                 Clear filters
               </button>
@@ -85,7 +85,7 @@ export function StockListPage() {
             <button
               type="button"
               onClick={() => updateParams({ page: 1 })}
-              className="h-control rounded-md bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
+              className="h-control rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
             >
               Back to first page
             </button>

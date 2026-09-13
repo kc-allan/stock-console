@@ -47,17 +47,20 @@ export function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 p-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Clinic stock console</h1>
-        <p className="mt-1 text-sm text-slate-600">Sign in to manage stock.</p>
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span aria-hidden="true" className="size-2.5 rounded-full bg-accent" />
+          Clinic stock console
+        </h1>
+        <p className="mt-1 text-sm text-muted">Sign in to manage stock.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5"
+        noValidate
+      >
         {error && (
-          <p
-            id={errorId}
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-          >
+          <p id={errorId} role="alert" className="rounded-lg bg-out-soft p-3 text-sm text-out">
             {error}
           </p>
         )}
@@ -74,7 +77,7 @@ export function LoginPage() {
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             aria-describedby={error ? errorId : undefined}
-            className="h-control rounded-md border border-slate-300 bg-white px-3"
+            className="h-control rounded-lg border border-line-strong bg-surface px-3"
           />
         </div>
 
@@ -91,22 +94,22 @@ export function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             aria-describedby={error ? errorId : undefined}
-            className="h-control rounded-md border border-slate-300 bg-white px-3"
+            className="h-control rounded-lg border border-line-strong bg-surface px-3"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="h-control rounded-md bg-brand-600 px-4 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+          className="h-control rounded-lg bg-accent px-4 font-semibold text-accent-ink hover:bg-accent-hover disabled:opacity-60"
         >
           {submitting ? <Spinner label="Signing in" /> : 'Sign in'}
         </button>
       </form>
 
-      <p className="text-sm text-slate-600">
-        Demo credentials: <code className="font-mono">emilys</code> /{' '}
-        <code className="font-mono">emilyspass</code>
+      <p className="text-sm text-muted">
+        Demo credentials: <code className="font-mono text-ink">emilys</code> /{' '}
+        <code className="font-mono text-ink">emilyspass</code>
       </p>
     </main>
   );

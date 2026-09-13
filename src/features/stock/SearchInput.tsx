@@ -46,7 +46,7 @@ export function SearchInput({ value, onCommit }: Props) {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Item name"
-          className="h-control min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3"
+          className="h-control min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3"
         />
         {draft && (
           <button
@@ -55,7 +55,7 @@ export function SearchInput({ value, onCommit }: Props) {
               setDraft('');
               onCommit('');
             }}
-            className="h-control rounded-md border border-slate-300 px-3 text-sm hover:bg-slate-100"
+            className="h-control rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-raised"
           >
             Clear
           </button>
