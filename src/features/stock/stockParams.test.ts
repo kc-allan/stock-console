@@ -31,10 +31,10 @@ describe('parseStockParams', () => {
     expect(parse('sort=stock&order=desc')).toMatchObject({ sort: 'stock', order: 'desc' });
   });
 
-  it('drops the category when a search is active', () => {
-    // The search endpoint ignores a category, so honouring both would show
-    // results that silently contradict the controls.
-    expect(parse('q=syrup&category=beauty')).toMatchObject({ q: 'syrup', category: '' });
+  it('keeps a category alongside a search', () => {
+    // Both are honoured now: the search runs on the server and the category is applied to its
+    // results in the browser, so a link carrying both reproduces the same narrowed view.
+    expect(parse('q=syrup&category=beauty')).toMatchObject({ q: 'syrup', category: 'beauty' });
   });
 
   it('round-trips through the URL without inventing parameters', () => {

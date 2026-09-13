@@ -8,21 +8,29 @@ import { StockListPage } from './StockListPage';
 
 const BASE = 'https://dummyjson.com';
 
-function page(titles: string[], total = titles.length) {
+/**
+ * The API returns every match at once, so `total` is always the number of items sent. The old
+ * helper let a fixture claim more items than it returned, which was harmless while the server
+ * did the paging and is a lie now that the browser does.
+ */
+function listResponse(items: { title: string; category?: string }[]) {
   return HttpResponse.json({
-    products: titles.map((title, index) => ({
+    products: items.map((item, index) => ({
       id: index + 1,
-      title,
-      category: 'wound-care',
+      title: item.title,
+      category: item.category ?? 'wound-care',
       stock: 5,
       price: 1,
       thumbnail: `https://cdn.dummyjson.com/products/images/${index + 1}/thumbnail.png`,
     })),
-    total,
+    total: items.length,
     skip: 0,
-    limit: 12,
+    limit: 0,
   });
 }
+
+const page = (titles: string[]) => listResponse(titles.map((title) => ({ title })));
+const numbered = (count: number) => Array.from({ length: count }, (_, i) => `Item ${i + 1}`);
 
 const categories = http.get(`${BASE}/auth/products/categories`, () =>
   HttpResponse.json([{ slug: 'wound-care', name: 'Wound care' }]),
@@ -73,12 +81,13 @@ describe('StockListPage', () => {
     // keeping the page number would strand the user on an arbitrary page.
     server.use(
       categories,
-      http.get(`${BASE}/auth/products`, () => page(['An item'], 200)),
+      // Enough for page 8 to exist: items 85–96.
+      http.get(`${BASE}/auth/products`, () => page(numbered(100))),
     );
 
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<StockListPage />, { route: '/items?page=8' });
-    await screen.findByText('An item');
+    await screen.findByText('Item 85');
     expect(screen.getByTestId('location')).toHaveTextContent('page=8');
 
     await user.selectOptions(screen.getByLabelText('Sort by'), 'stock:desc');
@@ -92,10 +101,7 @@ describe('StockListPage', () => {
   it('offers a way back when a pasted URL points past the last page', async () => {
     server.use(
       categories,
-      http.get(`${BASE}/auth/products`, ({ request }) => {
-        const skip = Number(new URL(request.url).searchParams.get('skip'));
-        return skip >= 20 ? page([], 20) : page(['An item'], 20);
-      }),
+      http.get(`${BASE}/auth/products`, () => page(numbered(20))),
     );
 
     const user = userEvent.setup({ delay: null });
@@ -104,8 +110,41 @@ describe('StockListPage', () => {
     await screen.findByText('That page does not exist');
     await user.click(screen.getByRole('button', { name: 'Back to first page' }));
 
-    await screen.findByText('An item');
+    await screen.findByText('Item 1');
     expect(screen.getByTestId('location')).toHaveTextContent('/items');
+  });
+
+  it('narrows a search by category, which the API cannot do on its own', async () => {
+    let searchRequests = 0;
+    server.use(
+      http.get(`${BASE}/auth/products/categories`, () =>
+        HttpResponse.json([
+          { slug: 'wound-care', name: 'Wound care' },
+          { slug: 'dental', name: 'Dental' },
+        ]),
+      ),
+      // The real search endpoint ignores a category parameter, so it returns every match.
+      http.get(`${BASE}/auth/products/search`, () => {
+        searchRequests += 1;
+        return listResponse([
+          { title: 'Gauze roll', category: 'wound-care' },
+          { title: 'Gauze swab', category: 'dental' },
+        ]);
+      }),
+    );
+
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<StockListPage />, { route: '/items?q=gauze' });
+    await screen.findByText('Gauze roll');
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'dental');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Gauze roll')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Gauze swab')).toBeInTheDocument();
+    // Narrowed from what was already loaded. Choosing a category is not a second request.
+    expect(searchRequests).toBe(1);
   });
 
   it('shows a recoverable error when the list request fails', async () => {

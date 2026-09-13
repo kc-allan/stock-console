@@ -31,6 +31,12 @@ export type StockParams = {
   page: number;
 };
 
+/**
+ * The part of the view the server is asked for. Category and page are left out on purpose:
+ * they are applied in the browser to what comes back, so changing them needs no request.
+ */
+export type StockQuery = Pick<StockParams, 'q' | 'sort' | 'order'>;
+
 function parsePage(raw: string | null): number {
   const value = Number(raw);
   return Number.isInteger(value) && value >= 1 ? value : 1;
@@ -43,10 +49,7 @@ export function parseStockParams(searchParams: URLSearchParams): StockParams {
 
   return {
     q,
-    // DummyJSON's search endpoint ignores a category parameter, so the two
-    // filters cannot be combined. Enforcing that here rather than in the UI
-    // means no downstream code has to handle the impossible combination.
-    category: q ? '' : (searchParams.get('category') ?? ''),
+    category: searchParams.get('category') ?? '',
     sort: SORT_FIELDS.includes(sortRaw ?? '') ? (sortRaw as SortField) : DEFAULT_SORT,
     order: orderRaw === 'desc' ? 'desc' : DEFAULT_ORDER,
     page: parsePage(searchParams.get('page')),

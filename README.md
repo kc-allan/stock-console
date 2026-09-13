@@ -134,11 +134,11 @@ From reading the docs provided by dummy json a few things stand out:
 
 2. DummyJSON is a public API therefore persisting state such as corrected stock count is not done server-side i.e updating stock with the PUT method on /products/<id> returns the updated stock number but a follow-up request on the product returns the original stock number. For this, instead of invalidating the query after a successful update, I would write the server's response into the cache to maintain the illusion of an update (this is clearly stated to the user on the UI)
 
-3. Unsupported query parameters are ignored by the API. For example in a `/products/search?q=phone&category=smartphones` request, the category filter is ignored by DummyJSON since `category` is not a supported parameter for a search request. Categories are fetched differently on the `/products/categories` endpoint. This means search and the category filter are mutually exclusive in the UI
+3. Unsupported query parameters are ignored by the API. For example in a `/products/search?q=phone&category=smartphones` request, the category filter is ignored by DummyJSON since `category` is not a supported parameter for a search request. Categories are fetched differently on the `/products/categories` endpoint. The app,therefore, designs around it this and makes the search request to the server returns every item from the catalogue, and the category filter is applied to those results in the browser. This is a compromise I was willing to take since the API returns only 194 items and provides better UX.On a real system this would however not be recommended
 
 - The same applies to sorting which only supports a handful of fields that the list can be sorted by e.g `sortBy=title` returns a sorted list while `sortBy=meta.createdAt` returns an unsorted list despite both being a `200` response and both being valid fields in the payload.
 
-**NB**:- `sortBy` is applied across the whole result set before pagination, so page one's highest price sits below page two's lowest. So sorting can be left to the server and stays correct across all pages.
+**NB**:- `sortBy` is applied across the whole result set before pagination, so page one's highest price sits below page two's lowest. So sorting is left to the server, the whole sorted result is fetched and paginated on the browser.
 
 These endpoints were tested with Postman to first have an idea of what the API structure looks like and to verify that what is claimed by the docs is actually how the API behaves.
 
@@ -146,8 +146,8 @@ These endpoints were tested with Postman to first have an idea of what the API s
 
 1. **Signin**: A sign in form that authenticates a user so all operations are gated
 1. **Search**: A search bar that allows users to find items by name or a relevant identifier.
-1. **Filter**: A filtering system that enables users to narrow down items by category, stock status or other relevant attributes.
-1. **Sort**: Options to sort the inventory list by selected criteria such as name, stock count or date added.
+1. **Filter**: Narrows the list, or a search, to a single category.
+1. **Sort**: Options to sort the inventory list by selected criteria such as name or stock count.
 1. **Item Detail View**: A detailed view for each item that displays all relevant information, including stock count, category and any other pertinent details.
 1. **Stock Count Correction**: A feature that allows users to update the stock count for an item when a physical count disagrees with the system's recorded count.
 
@@ -165,7 +165,7 @@ The URL handles the main query. The search term, category, sort field, sort dire
 
 #### Server state
 
-This handles dynamic data where the source of truth is the server i.e the stock catalogue, categories and item details. Their state on the application is managed by TanStack Query and can't also be copied into component state. Components instead read them from cache. The query key is what contains every input to the request and is derived from the URL state parameters.
+This handles dynamic data where the source of truth is the server i.e the stock catalogue, categories and item details. Their state on the application is managed by TanStack Query and can't also be copied into component state. Components instead read them from cache. The query key holds the search term and the sort, which is what is sent to the server. Category and page also live in the URL, but they are applied in the browser, so they are not part of the key.
 
 #### Local UI state
 
@@ -176,9 +176,9 @@ Auth tokens are in a different module of its own instead React state because the
 
 ### How I fetch, cache and invalidate data
 
-TanStack Query is populated by the same parameters that are in the URL. Data from categories are cached with a long lived stale time because they barely change while the stock list is briefly cached
+The server searches and sorts while the browser filters by category and paginates. A search returns every match in one request, since the whole catalogue is 194 items and quite of a small payload to bear. Changing the category or the page reuses what is already loaded, so only a new search or a new sort goes back to the network. Categories are cached with a long-lived stale time because they barely change, while the stock list is cached briefly.
 
-- Since a slow reply from a query that a user has already moved on from should never reach the screen we achieve this by ensuring the search term is part of the query key that is sent out with on a request. If a user changes their search term in the middle of a query. The initial query is aborted by the AbortController and a new request is sent with the new search term
+- A slow reply to a search the user has already replaced must never reach the screen. Debouncing the input doesn't necessarily achieve this since it only cuts how many requests go out. What guarantees it is that the search term is part of the key the result is cached under. That key never leaves the browser so a reply for "phone" is filed under "phone" while the list is reading the entry for "phones", so the stale result has nowhere to render. Superseded requests are also aborted, but that only saves work, the key is what makes it correct.
 
 - If a request hangs on a slow connection. Instead of leaving a request open indefinitely, which would leave a spinner up forever, requests time out and give an error with a retry.
 
@@ -213,8 +213,8 @@ Three things worth considering:
 2. **Refresh the token by reactiong to a 401**
    The token's expiry is readable from the JWT, so I could schedule a refresh just before it lapses and avoid every expiry needing a failed request and a retry which on a slow connection can be actual overhead. I decided to keep it simple and make it reactive since it involves a fewer moving parts and it also handles the cases a timer does not i.e a suspended tab or a clock that is wrong. This way the behaviour is also provable since expiry happens constantly with a one-minute token.
 
-3. **Search and category are mutually exclusive**
-   The search endpoint ignores a category parameter, so the two cannot be combined in a request. The workaround I opted for is to let one win i.e clear the category when a search is typed and disabled whichever control is inactive stating a reason on the UI, with a way to clear the other.
+3. **Search on the server, narrow by category in the browser**
+   The search endpoint ignores a category parameter, so the two cannot be combined in one request. I had first made them mutually exclusive, disabling whichever control was inactive. I dropped this and considered making a search return every match instead, in one request, then the category filter and pagination are applied to that result in the browser. The **alternative** I rejected was fetching all 194 items and running search in the browser too. It is simpler, but search would otherwise never touch the network, which beats the point of having the API as a source of truth and would assume a fixed number of items.
 
 4. **Writing the save response into the cache instead of invalidating**
    The convention after a successful mutation is to invalidate the query and refetch. Here that is won't really work since the API returns the updated object but does not store it, so the refetch returns the old count and the update will be undone when this data updates the UI. Instead I write the response into the cache and the detail view and any cached list page then give notice to the user that the demo API will not keep the change, a reload will overwrite it. The app is briefly more optimistic than the server.
@@ -264,11 +264,9 @@ This avoided creating a UI where a successful correction appeared to immediately
 
 ### An AI output that was incorrect or incomplete
 
-One useful example occurred while implementing the authenticated request flow. An early version allowed a request to remain in a signed-in state after a refresh had apparently succeeded but the resulting credentials were still rejected. This could leave the user on a screen where retrying the operation could not resolve the problem.
+While implementing the search and filtering functionality,AI initially suggested building a mutex between search and category since the API doesn't handle category filtering in one search request. The suggestion initiall sounded plausible and I actually built on since it actually is for this problem
 
-I caught this during review of the failure path and changed the session handling so that an unsuccessful refreshed session is treated as an unrecoverable authentication failure rather than repeatedly retrying the same request.
-
-I also used automated tests and linting throughout the process to catch implementation-level issues that were not always apparent from reviewing the generated code alone.
+I however reviewed this implementation and concluded it would be better to just fetch the entire catalogue and filter by category on the client-side. This avoids UX friction and actually makes the tools of the trade (searching and filtering) actually intuitive for any new staff. I admit it is not a scalable solution but for this use-case it is a trade-off worth considering
 
 ### Two decisions I made without AI
 
@@ -278,15 +276,13 @@ I chose to deploy the application to my own Linux VPS rather than relying solely
 
 **2. Requiring review before commits**
 
-I deliberately structured the workflow so I could review any generated or assisted changes before committing to it.
+I deliberately structured the workflow so I could review any generated or assisted changes before committing to it.This allowed me to inspect the application's behaviour and debate it before settling on it
 
 ### Part of the codebase I would find hardest to defend
 
-The most technically subtle part is the authentication request layer, particularly the single-flight token refresh mechanism.
+The most technical part of the authentication request layer, particularly the single-flight token refresh mechanism. I actually do understand the mechanism of it, but it is also the area where I would expect to be questioned during the review.
 
-The important behaviour is that multiple requests receiving an authentication failure should not independently start refresh operations. They should share one refresh attempt and then retry appropriately.
-
-I understand the mechanism and the reasoning around it, but it is also the area where I would expect to be questioned during a review.
+The important part is that multiple requests receiving an authentication failure should not independently start refresh operations. They should share one refresh attempt and then retry appropriately.
 
 ### Time spent
 
