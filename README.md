@@ -170,14 +170,14 @@ This handles dynamic data where the source of truth is the server i.e the stock 
 
 #### Local UI state
 
-Local state will be whatever is has not be committed yet e.g text from the search input. The URL should describe a search that the user has settled on instead of each keystroke, which is why it is important to have a local state that first handles it
+Local state will be whatever has not be committed yet e.g text from the search input. The URL should describe a search that the user has settled on instead of each keystroke, which is why it is important to have a local state that first handles it
 Local state also keeps track of auth status and current user's context
 
 Auth tokens are in a different module of its own instead React state because the fetch wrapper runs outside the component tree and cannot read a React hook from a different component
 
 ### How I fetch, cache and invalidate data
 
-The server searches and sorts while the browser filters by category and paginates. A search returns every match in one request, since the whole catalogue is 194 items and quite of a small payload to bear. Changing the category or the page reuses what is already loaded, so only a new search or a new sort goes back to the network. Categories are cached with a long-lived stale time because they barely change, while the stock list is cached briefly.
+The server searches and sorts while the browser filters by category and paginates. A search returns every match in one request, since the whole catalogue is 194 items which is a small payload to bear. Changing the category or the page reuses what is already loaded, so only a new search or a new sort goes back to the network. Categories are cached with a long-lived stale time because they barely change, while the stock list is cached briefly.
 
 - A slow reply to a search the user has already replaced must never reach the screen. Debouncing the input doesn't necessarily achieve this since it only cuts how many requests go out. What guarantees it is that the search term is part of the key the result is cached under. That key never leaves the browser so a reply for "phone" is filed under "phone" while the list is reading the entry for "phones", so the stale result has nowhere to render. Superseded requests are also aborted, but that only saves work, the key is what makes it correct.
 
@@ -191,7 +191,7 @@ The server searches and sorts while the browser filters by category and paginate
 
 The project uses tailwind, with its default scale for spacing, type and neutrals. I've only added two theme tokens i.e a brand accent, and a minimum control height of 44px for touch devices to be reliably tappable.
 
-No component library was also used.
+No component library was used.
 
 The list is a single column of cards rather than a table. A table may be better on a desktop, would be considered eventually, but it needs a second layout for narrow screens. So since the requirements target tablet users mostly, this layout scales upwards and was therefore better trade off.
 
@@ -208,16 +208,16 @@ Three things worth considering:
 ## Decision Log
 
 1. **Building against the `/auth/products` endpoint instead of the `/products`**
-   The requirements document lists the public product endpoints that work without and auth token supplied. I, however, went with its mirror alternative which requires and auth token to successfully fetch products or otherwise throws a 401 error. The **alternative** was that a user would sign in, the app holds a token and then fetches products with a token that never gets checked making auth decorative instead of actually functional.
+   The requirements document lists the public product endpoints that work without an auth token supplied. I, however, went with its mirror alternative which requires an auth token to successfully fetch products or otherwise throws a 401 error. The **alternative** was that a user would sign in, the app holds a token and then fetches products with a token that never gets checked making auth decorative instead of actually functional.
    **Reason I chose to go against this** is because the apps behaviour when a token expires would have to be simulated rather than actually getting a trigger from the API
 
-2. **Refresh the token by reactiong to a 401**
+2. **Refresh the token by reacting to a 401**
    The token's expiry is readable from the JWT, so I could schedule a refresh just before it lapses and avoid every expiry needing a failed request and a retry which on a slow connection can be actual overhead. I decided to keep it simple and make it reactive since it involves a fewer moving parts and it also handles the cases a timer does not i.e a suspended tab or a clock that is wrong. This way the behaviour is also provable since expiry happens constantly with a one-minute token.
 
 3. **Search on the server, narrow by category in the browser**
    The search endpoint ignores a category parameter, so the two cannot be combined in one request. I had first made them mutually exclusive, disabling whichever control was inactive. I dropped this and considered making a search return every match instead, in one request, then the category filter and pagination are applied to that result in the browser. The **alternative** I rejected was fetching all 194 items and running search in the browser too. It is simpler, but search would otherwise never touch the network, which beats the point of having the API as a source of truth and would assume a fixed number of items.
 
-4. **Writing the save response into the cache instead of invalidating**
+4. **Writing the saved response into the cache instead of invalidating**
    The convention after a successful mutation is to invalidate the query and refetch. Here that is won't really work since the API returns the updated object but does not store it, so the refetch returns the old count and the update will be undone when this data updates the UI. Instead I write the response into the cache and the detail view and any cached list page then give notice to the user that the demo API will not keep the change, a reload will overwrite it. The app is briefly more optimistic than the server.
 
 ## AI Usage & Reflection
